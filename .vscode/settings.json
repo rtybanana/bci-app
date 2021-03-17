@@ -1,0 +1,6 @@
+{
+  "python.pythonPath": "C:\\Anaconda3\\envs\\eegnet\\python.exe",
+  "python.analysis.extraPaths": [
+    "C:\\Users\\roryp\\vscodeprojects\\neuro\\bci2\\modules"
+  ]
+}
