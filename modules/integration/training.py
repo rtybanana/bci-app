@@ -105,8 +105,9 @@ def get_model(transfer_paths=None):
       for i in range(1, len(transfer_paths)):
         print(i)
         transfer_raw = concatenate_raws([transfer_raw, read_raw_brainvision(transfer_paths[i], preload=True)])
-  except:
-    return (model, True)
+  except Exception as e:
+    print('failed', e)
+    return (model, None)
 
   transX, transY = epoch_pilot(transfer_raw, n_classes=3, good_channels=GOODS, resample=RESAMPLE, trange=T_RANGE, l_freq=LO_FREQ, h_freq=HI_FREQ)
 
