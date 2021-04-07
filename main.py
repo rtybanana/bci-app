@@ -4,9 +4,11 @@ sys.path.insert(0, os.path.join(sys.path[0], 'modules'))
 
 # imports
 # from evaluation import EEGNet
+import numpy as np
 from threading import Thread
 from mne import create_info
-from integration import game_connect, game_disconnect, lsl_connect, lsl_disconnect, get_model, stream_channels
+from mne.io import RawArray
+from integration import game_connect, game_disconnect, lsl_connect, lsl_disconnect, get_model, stream_channels, LO_FREQ, HI_FREQ, GOODS
 import PySimpleGUI as sg
 from tkinter.filedialog import askopenfilenames
 from collections import deque
@@ -46,8 +48,9 @@ class App:
           ],
           background_color="lightgrey",
           element_justification='left',
-          pad=((0,0),(20,0))
-        )]
+          pad=((0,0),(20,20))
+        )],
+        [sg.Button("Finalize", size=(20, 1), key="btn_finalize")]
       ], 
       element_justification='center'
     )]
@@ -94,6 +97,8 @@ class App:
         Thread(target=self.connect_headset).start()
       elif event == "btn_train_model":
         Thread(target=self.train_model).start()
+      elif event == "btn_finalize":
+        Thread(target=self.finalize).start()
       
       to_update = self.loading.copy()
       for update in to_update:
@@ -120,7 +125,7 @@ class App:
     result = game_connect() if self.game is None else False
     if result is not False:
       self.game = result
-      Thread(target=self.receive).start()
+      # Thread(target=self.receive).start()
 
       self.queue_gui_update('game_con_status', {'value': u'\u2713', 'text_color': 'green', 'visible': True})
       self.queue_gui_update('btn_con_game', {'text': 'Disconnect game'})
@@ -146,7 +151,7 @@ class App:
 
     self.eeg = lsl_connect() if self.eeg is None else None
     if self.eeg is not None:
-      Thread(target=self.stream).start()
+      # Thread(target=self.stream).start()
 
       self.queue_gui_update('headset_con_status', {'value': u'\u2713', 'text_color': 'green', 'visible': True})
       self.queue_gui_update('btn_con_headset', {'text': 'Disconnect headset'})
@@ -204,32 +209,67 @@ class App:
       self.queue_gui_update('model_train_loading', {'visible': False})
       self.loading.remove('model_train')
 
+  def finalize(self):
+    print("finalize")
+    if self.eeg is not None and self.game is not None:
+      print("starting stream and socket threads")
+      Thread(target=self.stream).start()
+      Thread(target=self.receive).start()
+
+    
+
   def receive(self):
+    print("starting receive thread")
     while self.game is not None:
-      target = int.from_bytes(self.game.recv(1))
-      print(target)
+      self.target = int.from_bytes(self.game.recv(1), byteorder="big")
+      print(self.target)
 
   def stream(self):
+    print("starting stream thread")
     while True and self.eeg is not None:
       while self.target is None:
         pass
-
-      sample_n = 0
-      sample_window = [0] * 1000
-      while sample_n < 1000:
-        sample, timestamp = self.eeg.pull_sample()
-        sample_window[sample_n]
-        sample_n = sample_n + 1
       
-      # sample window created so here we will classify
-      #   turn into mne object with RawArray
-      #   apply info from self.stream_info above to get channel info
-      #   remove bad channels
-      #   bandpass filter
-      #   split into four 250 sample blocks with no shared samples
-      #   classify each individually
-      #   average result and assess probabilities
-      #   return predicted class to ForestShepherd 
+      # record from t=0.5 to t=2.5
+      sample_window = []
+      for i in range(1250):
+        # skip the first 250 samples (0.5 seconds)
+        if i < 250:
+          self.eeg.pull_sample()
+          continue
+
+        sample, timestamp = self.eeg.pull_sample()
+        sample_window.append(sample)
+
+      # convert to numpy array and transpose to correct orientation
+      sample_window = np.asarray(sample_window).T
+      print(sample_window.shape)
+
+      # turn into mne object with RawArray
+      # apply info from self.stream_info above to get channel info
+      raw = RawArray(data=sample_window, info=self.stream_info)
+
+      # bandpass filter
+      raw = raw.filter(LO_FREQ, HI_FREQ, method='fir', fir_design='firwin', phase='zero')
+
+      # remove bad channels
+      # raw = filter_channels(raw, GOODS)
+      raw.info['bads'] = [x for x in raw.ch_names if x not in GOODS]
+      raw = raw.reorder_channels(sorted(raw.ch_names))  
+      raw = raw.set_eeg_reference(ch_type='auto')
+
+      # split into four 250 sample blocks with no shared samples
+      raw_data = raw.get_data()*1000
+      to_classify = [raw_data[i::4] for i in range(4)]
+
+      print(to_classify)
+
+      # classify each individually
+      # average result and assess probabilities
+      # return predicted class to ForestShepherd 
+
+      # return self.target to None and continue
+      self.target = None
       
         
     print('quitting stream and cleaning up')
