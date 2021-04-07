@@ -5,7 +5,7 @@ from queue import Queue
 import numpy as np
 
 path.append("EEGModels")
-from EEGModels import EEGNet
+from evaluation import EEGNet
 
 
 trial_queue = Queue()

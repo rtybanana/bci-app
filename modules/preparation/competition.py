@@ -2,7 +2,6 @@ from mne import Epochs, pick_types, events_from_annotations, concatenate_raws, r
 from mne.io import read_raw_gdf, Raw
 from mne.channels import make_standard_montage
 from .prepare import filter_channels, apply_ica
-from autoreject import AutoReject
 import numpy as np
 
 

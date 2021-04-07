@@ -120,6 +120,8 @@ class App:
     result = game_connect() if self.game is None else False
     if result is not False:
       self.game = result
+      Thread(target=self.receive).start()
+
       self.queue_gui_update('game_con_status', {'value': u'\u2713', 'text_color': 'green', 'visible': True})
       self.queue_gui_update('btn_con_game', {'text': 'Disconnect game'})
     else:
@@ -202,6 +204,11 @@ class App:
       self.queue_gui_update('model_train_loading', {'visible': False})
       self.loading.remove('model_train')
 
+  def receive(self):
+    while self.game is not None:
+      target = int.from_bytes(self.game.recv(1))
+      print(target)
+
   def stream(self):
     while True and self.eeg is not None:
       while self.target is None:
@@ -209,7 +216,7 @@ class App:
 
       sample_n = 0
       sample_window = [0] * 1000
-      while sample_count < 1000:
+      while sample_n < 1000:
         sample, timestamp = self.eeg.pull_sample()
         sample_window[sample_n]
         sample_n = sample_n + 1

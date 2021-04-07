@@ -16,6 +16,7 @@ def game_connect():
   return connection
 
 def game_disconnect(socket: socket):
+  socket.sendall(bytes([255]))
   socket.shutdown(SHUT_RDWR)
   socket.close()
 
