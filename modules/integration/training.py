@@ -7,6 +7,11 @@ from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.callbacks import ModelCheckpoint
 from mne.io import read_raw_brainvision
 
+from tensorflow import ConfigProto, GPUOptions, Session
+config = ConfigProto(gpu_options=GPUOptions(allow_growth=True))
+session = Session(config=config)
+K.set_session(session)
+
 
 GOODS = ['FC3','C3','CP3','Fz','Cz','POz','FC4','C4','CP4']
 T_RANGE = [0.5, 2.5]
