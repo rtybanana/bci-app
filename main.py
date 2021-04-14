@@ -6,6 +6,7 @@ sys.path.insert(0, os.path.join(sys.path[0], 'modules'))
 # from evaluation import EEGNet
 import numpy as np
 from threading import Thread
+from time import sleep
 from mne import create_info
 from mne.io import RawArray
 from integration import game_connect, game_disconnect, lsl_connect, lsl_disconnect, get_model, stream_channels, LO_FREQ, HI_FREQ, GOODS
@@ -92,13 +93,13 @@ class App:
       event, values = self.window.read(100)
 
       if event == "btn_con_game":
-        Thread(target=self.connect_game).start()
+        Thread(target=self.connect_game, daemon=True).start()
       elif event == "btn_con_headset":
-        Thread(target=self.connect_headset).start()
+        Thread(target=self.connect_headset, daemon=True).start()
       elif event == "btn_train_model":
-        Thread(target=self.train_model).start()
+        Thread(target=self.train_model, daemon=True).start()
       elif event == "btn_finalize":
-        Thread(target=self.finalize).start()
+        Thread(target=self.finalize, daemon=True).start()
       
       to_update = self.loading.copy()
       for update in to_update:
@@ -209,30 +210,45 @@ class App:
       self.queue_gui_update('model_train_loading', {'visible': False})
       self.loading.remove('model_train')
 
+    self.model._make_predict_function()
+
   def finalize(self):
     print("finalize")
     if self.eeg is not None and self.game is not None:
       print("starting stream and socket threads")
-      Thread(target=self.stream).start()
-      Thread(target=self.receive).start()
+      Thread(target=self.stream, daemon=True).start()
+      Thread(target=self.receive, daemon=True).start()
 
     
 
   def receive(self):
     print("starting receive thread")
     while self.game is not None:
+      print('waiting for target')
       self.target = int.from_bytes(self.game.recv(1), byteorder="big")
       print(self.target)
 
   def stream(self):
     print("starting stream thread")
+    # pull chunk because the first doesn't work?
+    self.eeg.pull_chunk()
+
     while True and self.eeg is not None:
       while self.target is None:
         pass
-      
+
+      # sleep for 2.5 seconds
+      sleep(2.5)
+      # grab the last chunk of samples - high due to filter length requirements on notch filter
+      chunk, timestamps = self.eeg.pull_chunk(max_samples=2048)
+      print(np.asarray(chunk).shape)
+
+      """
+      print('recording')
       # record from t=0.5 to t=2.5
       sample_window = []
-      for i in range(1250):
+      # 1274 because the training data is currently sampled as 128Hz - needs to change
+      for i in range(1274):
         # skip the first 250 samples (0.5 seconds)
         if i < 250:
           self.eeg.pull_sample()
@@ -240,31 +256,49 @@ class App:
 
         sample, timestamp = self.eeg.pull_sample()
         sample_window.append(sample)
-
-      # convert to numpy array and transpose to correct orientation
-      sample_window = np.asarray(sample_window).T
-      print(sample_window.shape)
+      
+      print('recorded')
+      """
 
       # turn into mne object with RawArray
       # apply info from self.stream_info above to get channel info
-      raw = RawArray(data=sample_window, info=self.stream_info)
+      raw = RawArray(data=np.asarray(chunk).T, info=self.stream_info)
 
       # bandpass filter
       raw = raw.filter(LO_FREQ, HI_FREQ, method='fir', fir_design='firwin', phase='zero')
+      raw = raw.notch_filter(50, method='iir')
 
       # remove bad channels
       # raw = filter_channels(raw, GOODS)
-      raw.info['bads'] = [x for x in raw.ch_names if x not in GOODS]
-      raw = raw.reorder_channels(sorted(raw.ch_names))  
-      raw = raw.set_eeg_reference(ch_type='auto')
+      # raw.info['bads'] = [x for x in raw.ch_names if x not in GOODS]
+      raw = raw.reorder_channels(sorted(raw.ch_names))
 
+      # crop to the final 1024 samples - change to 1000 eventually
       # split into four 250 sample blocks with no shared samples
-      raw_data = raw.get_data()*1000
-      to_classify = [raw_data[i::4] for i in range(4)]
+      raw_data = raw.get_data(picks=GOODS, start=1024)*1000
+      to_classify = np.stack([raw_data[:,i::4] for i in range(4)])
+      print(to_classify.shape)
 
-      print(to_classify)
+      # print(to_classify)
 
       # classify each individually
+      # reshape to [epochs (4), kernels (1), channels (?), samples (1000)] 
+      probs = self.model.predict(to_classify.reshape(to_classify.shape[0], 1, to_classify.shape[1], to_classify.shape[2]))
+      print(probs)
+      probs = np.sum(probs, axis=0) / 4
+      print(probs)
+
+      result = np.where(probs > 0.75)
+      if len(result[0]) == 0:
+        # send unknown
+        print('unknown')
+        self.game.sendall(bytes([25]))
+      else:
+        # send index of result
+        print('classified:', result[0][0])
+        self.game.sendall(bytes([result[0][0]]))
+      
+
       # average result and assess probabilities
       # return predicted class to ForestShepherd 
 

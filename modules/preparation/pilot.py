@@ -15,9 +15,10 @@ def loadall_pilot(preload=False):
   """
   Loads and concatenates the imagined and real movement pilot data
   """
-  real = read_raw_brainvision('data/rivet/raw/VIPA_BCIpilot_realmovement.vhdr', preload=preload)
-  imagined = read_raw_brainvision('data/rivet/raw/VIPA_BCIpilot_imaginedmovement.vhdr', preload=preload)
-  raw = concatenate_raws([real, imagined])
+  pilot1_real = read_raw_brainvision('data/rivet/raw/pilot1/VIPA_BCIpilot_realmovement.vhdr', preload=preload)
+  pilot1_imagined = read_raw_brainvision('data/rivet/raw/pilot1/VIPA_BCIpilot_imaginedmovement.vhdr', preload=preload)
+  pilot2 = read_raw_brainvision('data/rivet/raw/pilot2/BCI_imaginedmoves_3class_7-4-21.vhdr', preload=preload)
+  raw = concatenate_raws([pilot1_real, pilot1_imagined, pilot2])
 
   return raw
 
@@ -29,8 +30,8 @@ def epoch_pilot(raw: Raw, n_classes, good_channels, resample=250, trange=[-0.2, 
 
     class       |   annotation        |   id
     left hand   |   'Stimulus/S  1'   |   0
-    right hand  |   'Stimulus/S  3'   |   1
     tongue      |   'Stimulus/S  2'   |   2
+    right hand  |   'Stimulus/S  3'   |   1
 
   Data is resampled to 250hz after epoching to match the competition data
   """
@@ -41,8 +42,8 @@ def epoch_pilot(raw: Raw, n_classes, good_channels, resample=250, trange=[-0.2, 
     
     return epochses
 
-  if   n_classes == 3: events, event_id = events_from_annotations(raw, event_id={'Stimulus/S  1': 0, 'Stimulus/S  3': 1, 'Stimulus/S  2': 2})
-  elif n_classes == 2: events, event_id = events_from_annotations(raw, event_id={'Stimulus/S  1': 0, 'Stimulus/S  3': 1})
+  if   n_classes == 3: events, event_id = events_from_annotations(raw, event_id={'Stimulus/left': 0, 'Stimulus/right': 1, 'Stimulus/feet': 2})
+  elif n_classes == 2: events, event_id = events_from_annotations(raw, event_id={'Stimulus/left': 0, 'Stimulus/right': 1})
   else: exit()
 
   raw = raw.filter(l_freq, h_freq, method='fir', fir_design='firwin', phase='zero')

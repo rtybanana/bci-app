@@ -7,6 +7,11 @@ from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.callbacks import ModelCheckpoint
 from mne.io import read_raw_brainvision
 
+from tensorflow import ConfigProto, GPUOptions, Session
+config = ConfigProto(gpu_options=GPUOptions(allow_growth=True))
+session = Session(config=config)
+K.set_session(session)
+
 
 GOODS = ['FC3','C3','CP3','Fz','Cz','POz','FC4','C4','CP4']
 T_RANGE = [0.5, 2.5]
@@ -20,7 +25,7 @@ BASE_WEIGHTS = 'base_model.h5'
 def train(model, train, validation, weight_file=None, epochs=300):
   checkpointer = ModelCheckpoint(filepath=weight_file, verbose=1, save_best_only=True) if weight_file is not None else None
 
-  return model.fit(train['x'], train['y'], batch_size=16, epochs=epochs, verbose=0, 
+  return model.fit(train['x'], train['y'], batch_size=32, epochs=epochs, verbose=0, 
                    validation_data=(validation['x'], validation['y']), callbacks=([checkpointer] if checkpointer is not None else []))
 
 

@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.join(sys.path[0], '../modules'))
 ## imports
 from mne import read_epochs
 from evaluation import EEGNet, get_fold, add_kernel_dim, onehot, test_rest_split, test_model, stratify
-from preparation import separateXY, load_comp, prep_comp, epoch_comp, loadall_pilot, epoch_pilot, readall_comp_epochs, comp_channel_map3
+from preparation import separateXY, load_comp, prep_comp, epoch_comp, loadall_pilot, epoch_pilot, readall_comp_epochs, comp_channel_map3, load_pilot
 from pathlib import Path
 from tensorflow.python.keras.callbacks import ModelCheckpoint
 from sklearn.model_selection import train_test_split, StratifiedKFold
@@ -16,7 +16,7 @@ FOLDS = 5
 REPEATS = 10
 GOODS = ['FC3','C3','CP3','Fz','Cz','POz','FC4','C4','CP4']
 T_RANGE = [0.5, 2.5]
-RESAMPLE = 128
+RESAMPLE = 125
 KERNELS = 1
 EPOCHS = 200
 TRANSFER_EPOCHS = 300
@@ -29,13 +29,13 @@ WEIGHT_PATH = f"weights"
 def train(model, train, validation, weight_file=None, epochs=300):
   checkpointer = ModelCheckpoint(filepath=weight_file, verbose=1, save_best_only=True) if weight_file is not None else None
 
-  return model.fit(train['x'], train['y'], batch_size=16, epochs=epochs, verbose=0, 
+  return model.fit(train['x'], train['y'], batch_size=32, epochs=epochs, verbose=0, 
                    validation_data=(validation['x'], validation['y']), callbacks=([checkpointer] if checkpointer is not None else []))
 
 
 ### script start
 # _compX, _compY = epoch_comp(prep_comp(load_comp(True), comp_channel_map3, GOODS, l_freq=LO_FREQ, h_freq=HI_FREQ), CLASSES, resample=RESAMPLE, trange=T_RANGE)
-_pilotX, _pilotY = epoch_pilot(loadall_pilot(True), CLASSES, GOODS, resample=RESAMPLE, trange=T_RANGE, l_freq=LO_FREQ, h_freq=HI_FREQ)
+_pilotX, _pilotY = epoch_pilot(load_pilot('data/rivet/raw/pilot2/BCI_imaginedmoves_3class_7-4-21.vhdr'), CLASSES, GOODS, resample=RESAMPLE, trange=T_RANGE, l_freq=LO_FREQ, h_freq=HI_FREQ)
 
 # _compX, _compY = stratify(_compX, _compY, FOLDS)
 
@@ -46,19 +46,19 @@ _pilotX, _pilotY = epoch_pilot(loadall_pilot(True), CLASSES, GOODS, resample=RES
 # elif (_compX.shape[2] < _pilotX.shape[2]):
 #   _pilotX = _pilotX[:,:,:_compX.shape[2]]
 
-# chans, samples = _pilotX.shape[1], _pilotX.shape[2]
-# Path(WEIGHT_PATH).mkdir(parents=True, exist_ok=True)
-
 # comp_trainX, comp_valX = add_kernel_dim(get_fold(_compX, FOLDS, 0, test_rest_split), kernels=KERNELS)
 # comp_trainY, comp_valY = onehot(get_fold(_compY, FOLDS, 0, test_rest_split))
 # comp_valY, _ = onehot((comp_valY, []))
 
+chans, samples = _pilotX.shape[1], _pilotX.shape[2]
+Path(WEIGHT_PATH).mkdir(parents=True, exist_ok=True)
+
 # weight file path
-weight_file = f"{WEIGHT_PATH}/base_model.h5"
+weight_file = "3class_model.h5"
 
 # initialise model
 model = EEGNet(
-  nb_classes=CLASSES, Chans=9, Samples=256, dropoutRate=0.5, 
+  nb_classes=CLASSES, Chans=chans, Samples=samples, dropoutRate=0.5, 
   kernLength=64, F1=8, D=2, F2=16, dropoutType='Dropout'
 )
 

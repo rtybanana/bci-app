@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.join(sys.path[0], '../../modules'))
 ## imports
 from mne import read_epochs
 from evaluation import EEGNet, get_fold, add_kernel_dim, onehot, test_val_rest_split, test_model, stratify
-from preparation import separateXY, load_comp, prep_comp, epoch_comp, loadall_pilot, epoch_pilot, readall_comp_epochs, comp_channel_map3
+from preparation import separateXY, load_comp, prep_comp, epoch_comp, loadall_pilot, epoch_pilot, readall_comp_epochs, comp_channel_map3, load_pilot
 from pathlib import Path
 from tensorflow.python.keras.callbacks import ModelCheckpoint
 from sklearn.model_selection import train_test_split, StratifiedKFold
@@ -18,7 +18,7 @@ TRANSFER_FOLDS = 5
 # GOODS = ['FC3','C3','CP3','FC4','C4','CP4']
 GOODS = ['FC3','C3','CP3','Fz','Cz','POz','FC4','C4','CP4']
 T_RANGE = [0.5, 2.5]
-RESAMPLE = 128
+RESAMPLE = 125
 KERNELS = 1
 EPOCHS = 200
 TRANSFER_EPOCHS = 300
@@ -38,7 +38,8 @@ def train(model, train, validation, weight_file=None, epochs=300):
 ### script start
 # _compX, _compY = separateXY(readall_comp_epochs('data/competition/epoched/ica'))
 _compX, _compY = epoch_comp(prep_comp(load_comp(True), comp_channel_map3, GOODS, l_freq=LO_FREQ, h_freq=HI_FREQ), CLASSES, resample=RESAMPLE, trange=T_RANGE)
-_pilotX, _pilotY = epoch_pilot(loadall_pilot(True), CLASSES, GOODS, resample=RESAMPLE, trange=T_RANGE, l_freq=LO_FREQ, h_freq=HI_FREQ)
+# _pilotX, _pilotY = epoch_pilot(loadall_pilot(True), CLASSES, GOODS, resample=RESAMPLE, trange=T_RANGE, l_freq=LO_FREQ, h_freq=HI_FREQ)
+_pilotX, _pilotY = epoch_pilot(load_pilot('data/rivet/raw/pilot2/BCI_imaginedmoves_3class_7-4-21.vhdr'), CLASSES, GOODS, resample=RESAMPLE, trange=T_RANGE, l_freq=LO_FREQ, h_freq=HI_FREQ)
 
 _compX, _compY = stratify(_compX, _compY, FOLDS)
 
@@ -74,7 +75,7 @@ for i in range(0, FOLDS):
   model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
   # train model and save weights
-  train(model, {"x": comp_trainX, "y": comp_trainY}, {"x": comp_valX, "y": comp_valY}, weight_file, epochs=EPOCHS)
+  # train(model, {"x": comp_trainX, "y": comp_trainY}, {"x": comp_valX, "y": comp_valY}, weight_file, epochs=EPOCHS)
 
   # load weights from file
   model.load_weights(weight_file)

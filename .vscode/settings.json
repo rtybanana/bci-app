@@ -1,6 +1,13 @@
 {
-  "python.pythonPath": "C:\\anaconda3\\envs\\eegnet3\\python.exe",
+  "python.pythonPath": "C:\\Anaconda3\\envs\\eegnet3\\python.exe",
   "python.analysis.extraPaths": [
-    "C:\\Users\\The UEA VR & EEG Lab\\vscode\\bci-app\\modules"
+    "C:/Users/roryp/vscodeprojects/neuro/bci2/modules"
+  ],
+  "spellright.language": [
+    "en"
+  ],
+  "spellright.documentTypes": [
+    "markdown",
+    "latex"
   ]
 }

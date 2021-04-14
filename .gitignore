@@ -1,2 +1,3 @@
-data/competition
+data/
 weights/
+.vscode/
