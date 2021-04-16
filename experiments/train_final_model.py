@@ -57,6 +57,7 @@ Path(WEIGHT_PATH).mkdir(parents=True, exist_ok=True)
 # weight file path
 weight_file = f"{CLASSES}class_model.h5"
 
+print(CLASSES, chans, samples)
 # initialise model
 model = EEGNet(
   nb_classes=CLASSES, Chans=chans, Samples=samples, dropoutRate=0.5, 

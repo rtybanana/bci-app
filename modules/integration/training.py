@@ -15,11 +15,11 @@ K.set_session(session)
 
 GOODS = ['FC3','C3','CP3','Fz','Cz','POz','FC4','C4','CP4']
 T_RANGE = [0.5, 2.5]
-RESAMPLE = 128
+RESAMPLE = 125
 EPOCHS = 300
 LO_FREQ = 1.
 HI_FREQ = 32
-BASE_WEIGHTS = 'base_model.h5'
+BASE_WEIGHTS = '3class_model.h5'
 
 
 def train(model, train, validation, weight_file=None, epochs=300):
@@ -87,7 +87,7 @@ def get_model(transfer_paths=None):
   K.clear_session()
 
   model = EEGNet(
-    nb_classes=3, Chans=9, Samples=256, dropoutRate=0.5, 
+    nb_classes=3, Chans=9, Samples=250, dropoutRate=0.5, 
     kernLength=64, F1=8, D=2, F2=16, dropoutType='Dropout'
   )
 

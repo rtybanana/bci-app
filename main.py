@@ -240,7 +240,7 @@ class App:
       # sleep for 2.5 seconds
       sleep(2.5)
       # grab the last chunk of samples - high due to filter length requirements on notch filter
-      chunk, timestamps = self.eeg.pull_chunk(max_samples=2048)
+      chunk, timestamps = self.eeg.pull_chunk(max_samples=2000)
       print(np.asarray(chunk).shape)
 
       """
@@ -266,7 +266,7 @@ class App:
 
       # bandpass filter
       raw = raw.filter(LO_FREQ, HI_FREQ, method='fir', fir_design='firwin', phase='zero')
-      raw = raw.notch_filter(50, method='iir')
+      # raw = raw.notch_filter(50, method='iir')
 
       # remove bad channels
       # raw = filter_channels(raw, GOODS)
@@ -275,9 +275,12 @@ class App:
 
       # crop to the final 1024 samples - change to 1000 eventually
       # split into four 250 sample blocks with no shared samples
-      raw_data = raw.get_data(picks=GOODS, start=1024)*1000
+      # 
+      raw_data = raw.get_data(picks=GOODS, start=1000)*1000
       to_classify = np.stack([raw_data[:,i::4] for i in range(4)])
+      # to_classify = np.stack([raw_data[:,0::4]])
       print(to_classify.shape)
+      print(to_classify)
 
       # print(to_classify)
 
@@ -288,7 +291,8 @@ class App:
       probs = np.sum(probs, axis=0) / 4
       print(probs)
 
-      result = np.where(probs > 0.75)
+      result = np.where(probs > 0.66)
+      # self.game.sendall(bytes([self.target + 1]))
       if len(result[0]) == 0:
         # send unknown
         print('unknown')
@@ -296,7 +300,7 @@ class App:
       else:
         # send index of result
         print('classified:', result[0][0])
-        self.game.sendall(bytes([result[0][0]]))
+        self.game.sendall(bytes([result[0][0] + 1]))
       
 
       # average result and assess probabilities

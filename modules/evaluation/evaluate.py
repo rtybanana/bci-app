@@ -112,6 +112,7 @@ def test_ensemble(models, test, targets):
   return evaluate(preds, targets)
 
 def test_model_confidence(model, test, targets, required_confidence):
+  print(test)
   probs = model.predict(test)
   # with np.printoptions(formatter={'float': '{: 0.3f}'.format}):
   #   print(probs)
