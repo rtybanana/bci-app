@@ -4,7 +4,7 @@ sys.path.insert(0, os.path.join(sys.path[0], '../modules'))
 
 ## imports
 from mne import read_epochs
-from evaluation import EEGNet, get_fold, add_kernel_dim, onehot, test_rest_split, test_model, stratify
+from evaluation import EEGNet, get_fold, add_kernel_dim, onehot, test_rest_split, test_model, stratify, test_model_confidence
 from preparation import separateXY, load_comp, prep_comp, epoch_comp, loadall_pilot, epoch_pilot, readall_comp_epochs, comp_channel_map3, load_pilot
 from pathlib import Path
 from tensorflow.python.keras.callbacks import ModelCheckpoint
@@ -23,6 +23,7 @@ TRANSFER_EPOCHS = 300
 LO_FREQ = 1.
 HI_FREQ = 32.
 WEIGHT_PATH = f"weights"
+CONFIDENCE = 0.66
 
 
 ## local functions
@@ -54,7 +55,7 @@ chans, samples = _pilotX.shape[1], _pilotX.shape[2]
 Path(WEIGHT_PATH).mkdir(parents=True, exist_ok=True)
 
 # weight file path
-weight_file = "3class_model.h5"
+weight_file = f"{CLASSES}class_model.h5"
 
 # initialise model
 model = EEGNet(
@@ -92,7 +93,7 @@ for i in range(REPEATS):
     train(model, {"x": pilot_trainX, "y": pilot_trainY}, {"x": pilot_valX, "y": pilot_valY}, epochs=TRANSFER_EPOCHS)
 
     # test pilot data
-    pilot_eval = test_model(model, pilot_testX, pilot_testY)
+    pilot_eval = test_model_confidence(model, pilot_testX, pilot_testY, CONFIDENCE)
     pilot_fold_avg = {k: pilot_fold_avg.get(k, 0) + pilot_eval.get(k, 0) for k in set(pilot_fold_avg) & set(pilot_eval)}
 
     print(f"\tpilot fold {i+1}:", sorted(pilot_eval.items()))

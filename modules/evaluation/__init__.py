@@ -1,2 +1,2 @@
 from .eegmodels import EEGNet, ShallowConvNet
-from .evaluate import get_fold, test_rest_split, test_val_rest_split, add_kernel_dim, onehot, evaluate, test_model, stratify, shuffle, test_framewise_avg, test_ensemble
+from .evaluate import get_fold, test_rest_split, test_val_rest_split, add_kernel_dim, onehot, evaluate, test_model, stratify, shuffle, test_framewise_avg, test_ensemble, test_model_confidence

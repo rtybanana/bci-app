@@ -111,6 +111,19 @@ def test_ensemble(models, test, targets):
   preds = probs.argmax(axis=-1)
   return evaluate(preds, targets)
 
+def test_model_confidence(model, test, targets, required_confidence):
+  probs = model.predict(test)
+  # with np.printoptions(formatter={'float': '{: 0.3f}'.format}):
+  #   print(probs)
+
+  confident = np.where(probs > required_confidence)
+  confident_targets = targets[confident[0]]
+  confident_preds = confident[1]
+  unclassified = len(targets) - len(confident_targets)
+  # preds = probs.argmax(axis=-1)
+
+  return evaluate(confident_preds, confident_targets, unclassified)
+
 def test_framewise_avg(model, test, targets, n_avg_frames):
   preds = []
   for frames in test:
@@ -124,13 +137,18 @@ def test_framewise_avg(model, test, targets, n_avg_frames):
   return evaluate(preds, targets)
 
 
-def evaluate(preds, targets):
+def evaluate(preds, targets, unclassified=None):
   import sklearn.metrics as metrics
-  return {
+  evaluation = {
     "acc": metrics.accuracy_score(targets, preds),
     "bal": metrics.balanced_accuracy_score(targets, preds),
     "kap": metrics.cohen_kappa_score(targets, preds)
   }
+
+  if (unclassified is not None):
+    evaluation["ignored"] = f"{unclassified}/{unclassified + len(targets)}"
+
+  return evaluation
 
 def stratify(X, y, n_folds):
   X_base, y_base = shuffle(X, y)
