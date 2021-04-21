@@ -1,5 +1,6 @@
 ## add local modules
 import sys, os
+from mne.io.pick import pick_channels
 sys.path.insert(0, os.path.join(sys.path[0], 'modules'))
 
 # imports
@@ -10,10 +11,30 @@ from time import sleep
 from mne import create_info
 from mne.io import RawArray
 from integration import game_connect, game_disconnect, lsl_connect, lsl_disconnect, get_model, stream_channels, LO_FREQ, HI_FREQ, GOODS
+from preparation import filter_channels
 import PySimpleGUI as sg
 from tkinter.filedialog import askopenfilenames
 from collections import deque
 
+#############################################################
+### START debug stuff
+from preparation import load_pilot
+from mne import Epochs, events_from_annotations, pick_types
+debug_pilot = load_pilot('data/rivet/raw/pilot2/BCI_imaginedmoves_3class_7-4-21.vhdr')
+events, event_id = events_from_annotations(debug_pilot, event_id={'Stimulus/left': 0, 'Stimulus/right': 1, 'Stimulus/feet': 2})
+picks = pick_types(debug_pilot.info, meg=False, eeg=True, stim=False, eog=False)
+epochs = Epochs(debug_pilot, events, event_id, proj=False, picks=picks, baseline=None, preload=True, verbose=False, tmin=-1.5, tmax=2.5)
+debug_labels = epochs.events[:, -1]
+debug_data = epochs.get_data()
+debug_data = debug_data[:,:,:-1]
+debug_label_map = ['left', 'right', 'feet']
+# debug_label_map_game = ['left', 'feet', 'right']
+
+
+print(debug_data)
+print(debug_data.shape)
+### END debug stuff
+#############################################################
 
 class App:
   # class variables
@@ -214,9 +235,17 @@ class App:
 
   def finalize(self):
     print("finalize")
-    if self.eeg is not None and self.game is not None:
+    # if self.eeg is not None and self.game is not None:
+    #   print("starting stream and socket threads")
+    #   Thread(target=self.stream, daemon=True).start()
+    #   Thread(target=self.receive, daemon=True).start()
+    
+    """
+    DEBUG VERSION
+    """
+    if self.game is not None:
       print("starting stream and socket threads")
-      Thread(target=self.stream, daemon=True).start()
+      Thread(target=self.debug_stream, daemon=True).start()
       Thread(target=self.receive, daemon=True).start()
 
     
@@ -266,7 +295,7 @@ class App:
 
       # bandpass filter
       raw = raw.filter(LO_FREQ, HI_FREQ, method='fir', fir_design='firwin', phase='zero')
-      # raw = raw.notch_filter(50, method='iir')
+      raw = raw.notch_filter(50, method='iir')
 
       # remove bad channels
       # raw = filter_channels(raw, GOODS)
@@ -312,6 +341,77 @@ class App:
         
     print('quitting stream and cleaning up')
     self.to_classify.clear()
+
+  """
+  DEBUG FUNCTION
+  """
+  def debug_stream(self):
+    print("starting debug stream thread")
+
+    debug_index = 0
+    while True:
+      while self.target is None:
+        pass
+
+      sleep(2.5)
+      # grab debug epoch
+      chunk = debug_data[debug_index]
+      debug_index += 1
+
+
+      # turn into mne object with RawArray
+      # apply info from self.stream_info above to get channel info
+      raw = RawArray(data=chunk, info=self.stream_info)
+      # print(raw.info)
+      # print(debug_pilot.info)
+
+      # bandpass filter
+      raw = raw.filter(LO_FREQ, HI_FREQ, method='fir', fir_design='firwin', phase='zero')
+      raw = raw.notch_filter(50, method='iir')
+    
+
+      # raw = raw.reorder_channels(sorted(raw.ch_names))
+
+
+
+      # get processed data and split into 4
+      raw.crop(tmin=2.)
+      raw_data = raw.get_data(picks=sorted(GOODS))*1000
+      to_classify = np.stack([raw_data[:,i::4] for i in range(4)])
+
+      # or resample
+      # raw.crop(tmin=2.)
+      # raw = raw.resample(125)
+      # to_classify = np.stack([raw.get_data(picks=sorted(GOODS))*1000])
+      print(to_classify.shape)
+      # print(to_classify)
+
+      # print(to_classify)
+
+      # classify each individually
+      # reshape to [epochs (4), kernels (1), channels (?), samples (1000)] 
+      probs = self.model.predict(to_classify.reshape(to_classify.shape[0], 1, to_classify.shape[1], to_classify.shape[2]))
+      # print(probs)
+      probs = np.sum(probs, axis=0) / 4
+      print(probs)
+
+      result = np.where(probs > 0.66)
+      print("debug target:", debug_labels[debug_index], f"({debug_label_map[debug_labels[debug_index]]})")
+      # self.game.sendall(bytes([self.target + 1]))
+      if len(result[0]) == 0:
+        # send unknown
+        print('unknown')
+        self.game.sendall(bytes([25]))
+      else:
+        # send index of result
+        print('classified:', result[0][0], f"({debug_label_map[result[0][0]]})")
+        self.game.sendall(bytes([result[0][0] + 1]))
+
+      self.target = None
+
+    print('quitting stream and cleaning up')
+    self.to_classify.clear()
+
 
   def queue_gui_update(self, element_key, update_dict):
     """
