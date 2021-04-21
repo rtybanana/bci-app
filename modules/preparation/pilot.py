@@ -47,7 +47,7 @@ def epoch_pilot(raw: Raw, n_classes, good_channels, resample=250, trange=[-0.2, 
   else: exit()
 
   raw = raw.filter(l_freq, h_freq, method='fir', fir_design='firwin', phase='zero')
-  raw = raw.notch_filter(50)
+  # raw = raw.notch_filter(50)
   if good_channels is not None:                                                         # if any good channels provided
     raw = filter_channels(raw, good_channels)
 
