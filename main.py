@@ -361,13 +361,13 @@ class App:
 
       # turn into mne object with RawArray
       # apply info from self.stream_info above to get channel info
-      raw = RawArray(data=chunk, info=self.stream_info)
+      raw = RawArray(data=chunk, info=create_info(debug_pilot.ch_names[:-3], 500, 'eeg'))
       # print(raw.info)
       # print(debug_pilot.info)
 
       # bandpass filter
       raw = raw.filter(LO_FREQ, HI_FREQ, method='fir', fir_design='firwin', phase='zero')
-      raw = raw.notch_filter(50, method='iir')
+      # raw = raw.notch_filter(50, method='iir')
     
 
       # raw = raw.reorder_channels(sorted(raw.ch_names))
@@ -375,14 +375,14 @@ class App:
 
 
       # get processed data and split into 4
-      raw.crop(tmin=2.)
-      raw_data = raw.get_data(picks=sorted(GOODS))*1000
-      to_classify = np.stack([raw_data[:,i::4] for i in range(4)])
+      # raw.crop(tmin=2.)
+      # raw_data = raw.get_data(picks=sorted(GOODS))*1000
+      # to_classify = np.stack([raw_data[:,i::4] for i in range(4)])
 
       # or resample
-      # raw.crop(tmin=2.)
-      # raw = raw.resample(125)
-      # to_classify = np.stack([raw.get_data(picks=sorted(GOODS))*1000])
+      raw.crop(tmin=2.)
+      raw = raw.resample(125)
+      to_classify = np.stack([raw.get_data(picks=sorted(GOODS))*1000])
       print(to_classify.shape)
       # print(to_classify)
 
@@ -392,7 +392,7 @@ class App:
       # reshape to [epochs (4), kernels (1), channels (?), samples (1000)] 
       probs = self.model.predict(to_classify.reshape(to_classify.shape[0], 1, to_classify.shape[1], to_classify.shape[2]))
       # print(probs)
-      probs = np.sum(probs, axis=0) / 4
+      probs = np.sum(probs, axis=0) / 1
       print(probs)
 
       result = np.where(probs > 0.66)

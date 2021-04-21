@@ -48,15 +48,18 @@ def epoch_pilot(raw: Raw, n_classes, good_channels, resample=250, trange=[-0.2, 
 
   raw = raw.filter(l_freq, h_freq, method='fir', fir_design='firwin', phase='zero')
   # raw = raw.notch_filter(50)
-  if good_channels is not None:                                                         # if any good channels provided
-    raw = filter_channels(raw, good_channels)
+  # if good_channels is not None:                                                         # if any good channels provided
+  #   raw = filter_channels(raw, good_channels)
 
-  raw = raw.reorder_channels(sorted(raw.ch_names))  
+  # raw = raw.reorder_channels(sorted(raw.ch_names))  
   raw = raw.set_eeg_reference(ch_type='auto')
 
-  picks = pick_types(raw.info, meg=False, eeg=True, stim=False, eog=False)
-  epochs = Epochs(raw, events, event_id, proj=False, picks=picks, baseline=None, preload=True, verbose=False, tmin=trange[0], tmax=trange[1])
+  # picks = pick_types(raw.info, meg=False, eeg=True, stim=False, eog=False)
+  # print(picks)
+  # print(sorted(good_channels))
+  epochs = Epochs(raw, events, event_id, proj=False, picks=sorted(good_channels), baseline=None, preload=True, verbose=False, tmin=trange[0], tmax=trange[1])
   epochs = epochs.resample(resample)
+  # epochs.plot(block=True)
   labels = epochs.events[:, -1]
 
   print(len(labels))

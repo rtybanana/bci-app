@@ -22,7 +22,7 @@ RESAMPLE = 125
 KERNELS = 1
 EPOCHS = 200
 TRANSFER_EPOCHS = 300
-LO_FREQ = 1.
+LO_FREQ = 2.
 HI_FREQ = 32.
 WEIGHT_PATH = f"weights/competition/subject-separated/{CLASSES}class/{FOLDS}fold/channel_map3"
 
@@ -75,7 +75,7 @@ for i in range(0, FOLDS):
   model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
   # train model and save weights
-  # train(model, {"x": comp_trainX, "y": comp_trainY}, {"x": comp_valX, "y": comp_valY}, weight_file, epochs=EPOCHS)
+  train(model, {"x": comp_trainX, "y": comp_trainY}, {"x": comp_valX, "y": comp_valY}, weight_file, epochs=EPOCHS)
 
   # load weights from file
   model.load_weights(weight_file)
