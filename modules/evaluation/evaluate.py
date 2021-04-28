@@ -111,16 +111,32 @@ def test_ensemble(models, test, targets):
   preds = probs.argmax(axis=-1)
   return evaluate(preds, targets)
 
+
 def test_model_confidence(model, test, targets, required_confidence):
-  print(test)
+  # print(test)
   probs = model.predict(test)
   # with np.printoptions(formatter={'float': '{: 0.3f}'.format}):
   #   print(probs)
 
-  confident = np.where(probs > required_confidence)
-  confident_targets = targets[confident[0]]
-  confident_preds = confident[1]
+  # confident = np.where(probs > required_confidence)
+  # confident_targets = targets[confident[0]]
+  # confident_preds = confident[1]
+  # unclassified = len(targets) - len(confident_targets)
+
+  confidences = np.sort(probs, axis=1)[:,::-1]
+  confident = []
+  for i, confidence in enumerate(confidences):
+    if confidence[0] - confidence[1] > required_confidence:
+      confident.append(i)
+  
+  confident_targets = targets[confident]
+  confident_probs = probs[confident]
+  # print(confident_probs)
+
+  confident_preds = confident_probs.argmax(axis=-1)
   unclassified = len(targets) - len(confident_targets)
+  # print(confidence)
+
   # preds = probs.argmax(axis=-1)
 
   return evaluate(confident_preds, confident_targets, unclassified)

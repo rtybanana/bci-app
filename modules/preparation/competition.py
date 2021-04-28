@@ -30,7 +30,7 @@ def load_comp_array(preload=False):
 
   return raws
 
-def epoch_comp(raw, n_classes, resample=250, trange=[-0.2, 0.5]):
+def epoch_comp(raw, n_classes, good_channels=None, resample=250, trange=[-0.2, 0.5]):
   """
 	Prepares the BCIIV competition data into epoched data depending on a passed number 
   of classes. The following event_id mapping is used:
@@ -48,7 +48,7 @@ def epoch_comp(raw, n_classes, resample=250, trange=[-0.2, 0.5]):
     epochses = [[] for r in raw]
     labelses = [[] for r in raw]
     for i, r in enumerate(raw):
-      epochses[i], labelses[i] = epoch_comp(r, n_classes, resample, trange)
+      epochses[i], labelses[i] = epoch_comp(r, n_classes, good_channels, resample, trange)
     
     return (epochses, labelses)
 
@@ -58,15 +58,17 @@ def epoch_comp(raw, n_classes, resample=250, trange=[-0.2, 0.5]):
   else: exit()
 
   # epoch creation and resampling
-  picks = pick_types(raw.info, meg=False, eeg=True, stim=False, eog=False)
-  epochs = Epochs(raw, events, event_id, proj=False, picks=picks, baseline=None, preload=True, verbose=False, event_repeated='merge', tmin=trange[0], tmax=trange[1])
+  # picks = pick_types(raw.info, meg=False, eeg=True, stim=False, eog=False)
+  print(raw.ch_names)
+  print(sorted(good_channels))
+  epochs = Epochs(raw, events, event_id, proj=False, picks=sorted(good_channels), baseline=None, preload=True, verbose=False, event_repeated='merge', tmin=trange[0], tmax=trange[1])
   epochs = epochs.resample(resample)
 
   labels = epochs.events[:, -1]
   return (epochs.get_data()*1000, labels)
 
 
-def prep_comp(raw: Raw, channel_map, good_channels=None, l_freq=0.5, h_freq=100.):
+def prep_comp(raw: Raw, channel_map, l_freq=0.5, h_freq=100.):
   """
   Performs thes basic EEG preprocessing pipeline, selecting channels and filtering
   etc. Will maybe do ICA
@@ -74,19 +76,21 @@ def prep_comp(raw: Raw, channel_map, good_channels=None, l_freq=0.5, h_freq=100.
   if isinstance(raw, list):
     raws = [[] for r in raw]
     for i, r in enumerate(raw):
-      raws[i] = prep_comp(r, channel_map, good_channels, l_freq, h_freq)
+      raws[i] = prep_comp(r, channel_map, l_freq, h_freq)
     
     return raws
 
-  good_channels.extend(['EOG-left', 'EOG-central', 'EOG-right'])                              # add EOG channels to keep (they get dropped later during epoching)
+  # goods = good_channels + ['EOG-left', 'EOG-central', 'EOG-right']                            # add EOG channels to keep (they get dropped later during epoching)
 
   raw = raw.filter(l_freq, h_freq, method='fir', fir_design='firwin', phase='zero')           # bandpass filter channels between l_freq and h_freq
+  # raw = raw.filter(l_freq, h_freq, method='iir', iir_params=dict(order=6, ftype='butter', output='sos'))
+
   raw = raw.rename_channels(channel_map)                                                      # rename channels based on passed map
-  if good_channels is not None:                                                               # if any good channels provided
-    raw = filter_channels(raw, good_channels)                                                 # filter channels based on passed good channels
+  # if good_channels is not None:                                                               # if any good channels provided
+  #   raw = filter_channels(raw, goods)                                                 # filter channels based on passed good channels
 
   raw = raw.set_channel_types({'EOG-left': 'eog', 'EOG-central': 'eog', 'EOG-right': 'eog'})  # set EOG channels to EOG type because they are incorrectly marked as EEG
-  raw = raw.reorder_channels(sorted(raw.ch_names))                                            # reorder channels into alphabetical
+  # raw = raw.reorder_channels(sorted(raw.ch_names))                                            # reorder channels into alphabetical
   raw = raw.set_eeg_reference(ch_type='auto')                                                 # set eeg reference to auto
 
   raw = raw.set_montage('standard_1020', on_missing='warn')                                   # set montage to 10/20, warn on missing

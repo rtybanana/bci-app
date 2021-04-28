@@ -18,22 +18,24 @@ from collections import deque
 
 #############################################################
 ### START debug stuff
-from preparation import load_pilot, loadall_pilot
-from mne import Epochs, events_from_annotations, pick_types
-debug_pilot = load_pilot('data/rivet/raw/pilot2/BCI_imaginedmoves_3class_7-4-21.vhdr')
-# debug_pilot = loadall_pilot(True)
-events, event_id = events_from_annotations(debug_pilot, event_id={'Stimulus/left': 0, 'Stimulus/right': 1, 'Stimulus/feet': 2})
-picks = pick_types(debug_pilot.info, meg=False, eeg=True, stim=False, eog=False)
-epochs = Epochs(debug_pilot, events, event_id, proj=False, picks=picks, baseline=None, preload=True, verbose=False, tmin=-1.5, tmax=2.5)
-debug_labels = epochs.events[:, -1]
-debug_data = epochs.get_data()
-debug_data = debug_data[:,:,:-1]
-debug_label_map = ['left', 'right', 'feet']
-# debug_label_map_game = ['left', 'feet', 'right']
+from preparation import load_pilot, epoch_pilot
 
+CLASSES = 3
+FOLDS = 5
+REPEATS = 10
+GOODS = ['FC3','C3','CP3','Fz','Cz','POz','FC4','C4','CP4']
+T_RANGE = [0.5, 2.5]
+RESAMPLE = 125
+KERNELS = 1
+EPOCHS = 200
+TRANSFER_EPOCHS = 300
+LO_FREQ = 1.
+HI_FREQ = 32.
+WEIGHT_PATH = f"weights/test"
+CONFIDENCE = 0.35
 
-print(debug_data)
-print(debug_data.shape)
+pilot, labels = epoch_pilot(load_pilot('data/rivet/raw/pilot2/BCI_imaginedmoves_3class_7-4-21.vhdr'), CLASSES, GOODS, resample=RESAMPLE, trange=T_RANGE, l_freq=LO_FREQ, h_freq=HI_FREQ)
+label_map = ['left', 'right', 'feet']
 ### END debug stuff
 #############################################################
 
@@ -236,17 +238,9 @@ class App:
 
   def finalize(self):
     print("finalize")
-    # if self.eeg is not None and self.game is not None:
-    #   print("starting stream and socket threads")
-    #   Thread(target=self.stream, daemon=True).start()
-    #   Thread(target=self.receive, daemon=True).start()
-    
-    """
-    DEBUG VERSION
-    """
     if self.game is not None:
       print("starting stream and socket threads")
-      Thread(target=self.debug_stream, daemon=True).start()
+      Thread(target=self.stream, daemon=True).start()
       Thread(target=self.receive, daemon=True).start()
 
     
@@ -259,94 +253,6 @@ class App:
       print(self.target)
 
   def stream(self):
-    print("starting stream thread")
-    # pull chunk because the first doesn't work?
-    self.eeg.pull_chunk()
-
-    while True and self.eeg is not None:
-      while self.target is None:
-        pass
-
-      # sleep for 2.5 seconds
-      sleep(2.5)
-      # grab the last chunk of samples - high due to filter length requirements on notch filter
-      chunk, timestamps = self.eeg.pull_chunk(max_samples=2000)
-      print(np.asarray(chunk).shape)
-
-      """
-      print('recording')
-      # record from t=0.5 to t=2.5
-      sample_window = []
-      # 1274 because the training data is currently sampled as 128Hz - needs to change
-      for i in range(1274):
-        # skip the first 250 samples (0.5 seconds)
-        if i < 250:
-          self.eeg.pull_sample()
-          continue
-
-        sample, timestamp = self.eeg.pull_sample()
-        sample_window.append(sample)
-      
-      print('recorded')
-      """
-
-      # turn into mne object with RawArray
-      # apply info from self.stream_info above to get channel info
-      raw = RawArray(data=np.asarray(chunk).T, info=self.stream_info)
-
-      # bandpass filter
-      raw = raw.filter(LO_FREQ, HI_FREQ, method='fir', fir_design='firwin', phase='zero')
-      raw = raw.notch_filter(50, method='iir')
-
-      # remove bad channels
-      # raw = filter_channels(raw, GOODS)
-      # raw.info['bads'] = [x for x in raw.ch_names if x not in GOODS]
-      raw = raw.reorder_channels(sorted(raw.ch_names))
-
-      # crop to the final 1024 samples - change to 1000 eventually
-      # split into four 250 sample blocks with no shared samples
-      # 
-      raw_data = raw.get_data(picks=GOODS, start=1000)*1000
-      to_classify = np.stack([raw_data[:,i::4] for i in range(4)])
-      # to_classify = np.stack([raw_data[:,0::4]])
-      print(to_classify.shape)
-      print(to_classify)
-
-      # print(to_classify)
-
-      # classify each individually
-      # reshape to [epochs (4), kernels (1), channels (?), samples (1000)] 
-      probs = self.model.predict(to_classify.reshape(to_classify.shape[0], 1, to_classify.shape[1], to_classify.shape[2]))
-      print(probs)
-      probs = np.sum(probs, axis=0) / 4
-      print(probs)
-
-      result = np.where(probs > 0.66)
-      # self.game.sendall(bytes([self.target + 1]))
-      if len(result[0]) == 0:
-        # send unknown
-        print('unknown')
-        self.game.sendall(bytes([25]))
-      else:
-        # send index of result
-        print('classified:', result[0][0])
-        self.game.sendall(bytes([result[0][0] + 1]))
-      
-
-      # average result and assess probabilities
-      # return predicted class to ForestShepherd 
-
-      # return self.target to None and continue
-      self.target = None
-      
-        
-    print('quitting stream and cleaning up')
-    self.to_classify.clear()
-
-  """
-  DEBUG FUNCTION
-  """
-  def debug_stream(self):
     print("starting debug stream thread")
 
     debug_index = 0
@@ -356,70 +262,31 @@ class App:
 
       sleep(2.5)
       # grab debug epoch
-      chunk = debug_data[debug_index]
-      target = debug_labels[debug_index]
+      epoch = pilot[debug_index]
+      target = labels[debug_index]
 
-
-      # turn into mne object with RawArray
-      # apply info from self.stream_info above to get channel info
-      raw = RawArray(data=chunk, info=create_info(debug_pilot.ch_names[:-3], 500, 'eeg'))
-      # print(raw.info)
-      # print(debug_pilot.info)
-
-      # bandpass filter
-      raw = raw.filter(LO_FREQ, HI_FREQ, method='fir', fir_design='firwin', phase='zero')
-      # raw = raw.notch_filter(50, method='iir')
-    
-
-      # raw = raw.reorder_channels(sorted(raw.ch_names))
-
-
-
-      # get processed data and split into 4
-      # raw.crop(tmin=2.)
-      # raw_data = raw.get_data(picks=sorted(GOODS))*1000
-      # to_classify = np.stack([raw_data[:,i::4] for i in range(4)])
-
-      # or resample
-      raw.crop(tmin=2.)
-      raw = raw.resample(125)
-      to_classify = np.stack([raw.get_data(picks=sorted(GOODS))*1000])
+      to_classify = np.stack([epoch])
       print(to_classify.shape)
-      # print(to_classify)
 
-      # print(to_classify)
-
-      # classify each individually
-      # reshape to [epochs (4), kernels (1), channels (?), samples (1000)] 
+      # reshape to [epochs (1), kernels (1), channels (?), samples (1000)] 
       probs = self.model.predict(to_classify.reshape(to_classify.shape[0], 1, to_classify.shape[1], to_classify.shape[2]))
-      # print(probs)
       probs = np.sum(probs, axis=0) / 1
       print(probs)
 
-      confidences = np.sort(probs, axis=0)[::-1]
-      confidence = confidences[0] - confidences[1]
-      prediction = probs.argmax(axis=0)
-
-
-      # result = np.where(probs > 0.66)
-      print("debug target:", target, f"({debug_label_map[target]})")
-      print("classification:", prediction, f"({debug_label_map[prediction]})")
-      print("confidence:", confidence)
+      result = np.where(probs > 0.66)
+      print("debug target:", target, f"({label_map[target]})")
       # self.game.sendall(bytes([self.target + 1]))
-      if confidence < 0.25:
+      if len(result[0]) == 0:
         # send unknown
         print('unknown')
         self.game.sendall(bytes([25]))
       else:
         # send index of result
-        # print('classified:', result[0][0], f"({debug_label_map[result[0][0]]})")
-        self.game.sendall(bytes([prediction + 1]))
+        print('classified:', result[0][0], f"({label_map[result[0][0]]})")
+        self.game.sendall(bytes([result[0][0] + 1]))
 
-      debug_index += 1
       self.target = None
-
-    print('quitting stream and cleaning up')
-    self.to_classify.clear()
+      debug_index += 1
 
 
   def queue_gui_update(self, element_key, update_dict):

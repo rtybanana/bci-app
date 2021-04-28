@@ -22,7 +22,7 @@ RESAMPLE = 125
 KERNELS = 1
 EPOCHS = 200
 TRANSFER_EPOCHS = 300
-LO_FREQ = 2.
+LO_FREQ = 1.
 HI_FREQ = 32.
 WEIGHT_PATH = f"weights/competition/subject-separated/{CLASSES}class/{FOLDS}fold/channel_map3"
 
@@ -37,7 +37,7 @@ def train(model, train, validation, weight_file=None, epochs=300):
 
 ### script start
 # _compX, _compY = separateXY(readall_comp_epochs('data/competition/epoched/ica'))
-_compX, _compY = epoch_comp(prep_comp(load_comp(True), comp_channel_map3, GOODS, l_freq=LO_FREQ, h_freq=HI_FREQ), CLASSES, resample=RESAMPLE, trange=T_RANGE)
+_compX, _compY = epoch_comp(prep_comp(load_comp(True), comp_channel_map3, l_freq=LO_FREQ, h_freq=HI_FREQ), CLASSES, GOODS, resample=RESAMPLE, trange=T_RANGE)
 # _pilotX, _pilotY = epoch_pilot(loadall_pilot(True), CLASSES, GOODS, resample=RESAMPLE, trange=T_RANGE, l_freq=LO_FREQ, h_freq=HI_FREQ)
 _pilotX, _pilotY = epoch_pilot(load_pilot('data/rivet/raw/pilot2/BCI_imaginedmoves_3class_7-4-21.vhdr'), CLASSES, GOODS, resample=RESAMPLE, trange=T_RANGE, l_freq=LO_FREQ, h_freq=HI_FREQ)
 

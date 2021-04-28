@@ -17,8 +17,8 @@ def loadall_pilot(preload=False):
   """
   pilot1_real = read_raw_brainvision('data/rivet/raw/pilot1/VIPA_BCIpilot_realmovement.vhdr', preload=preload)
   pilot1_imagined = read_raw_brainvision('data/rivet/raw/pilot1/VIPA_BCIpilot_imaginedmovement.vhdr', preload=preload)
-  pilot2 = read_raw_brainvision('data/rivet/raw/pilot2/BCI_imaginedmoves_3class_7-4-21.vhdr', preload=preload)
-  raw = concatenate_raws([pilot1_real, pilot1_imagined, pilot2])
+  # pilot2 = read_raw_brainvision('data/rivet/raw/pilot2/BCI_imaginedmoves_3class_7-4-21.vhdr', preload=preload)
+  raw = concatenate_raws([pilot1_real, pilot1_imagined])
 
   return raw
 
@@ -47,7 +47,8 @@ def epoch_pilot(raw: Raw, n_classes, good_channels, resample=250, trange=[-0.2, 
   else: exit()
 
   raw = raw.filter(l_freq, h_freq, method='fir', fir_design='firwin', phase='zero')
-  # raw = raw.notch_filter(50)
+  # raw = raw.filter(l_freq, h_freq, method='iir', iir_params=dict(order=6, ftype='butter', output='sos'))
+
   # if good_channels is not None:                                                         # if any good channels provided
   #   raw = filter_channels(raw, good_channels)
 
@@ -56,8 +57,10 @@ def epoch_pilot(raw: Raw, n_classes, good_channels, resample=250, trange=[-0.2, 
 
   # picks = pick_types(raw.info, meg=False, eeg=True, stim=False, eog=False)
   # print(picks)
+  # print(raw.ch_names)
   # print(sorted(good_channels))
   epochs = Epochs(raw, events, event_id, proj=False, picks=sorted(good_channels), baseline=None, preload=True, verbose=False, tmin=trange[0], tmax=trange[1])
+  # print(epochs.ch_names)
   epochs = epochs.resample(resample)
   # epochs.plot(block=True)
   labels = epochs.events[:, -1]
