@@ -23,7 +23,7 @@ TRANSFER_EPOCHS = 300
 LO_FREQ = 1.
 HI_FREQ = 32.
 WEIGHT_PATH = f"weights/test"
-CONFIDENCE = 0.35
+CONFIDENCE = 0.20
 
 
 ## local functions
@@ -55,7 +55,7 @@ chans, samples = _pilotX.shape[1], _pilotX.shape[2]
 Path(WEIGHT_PATH).mkdir(parents=True, exist_ok=True)
 
 # weight file path
-weight_file = f"weights/test/{CLASSES}class_model.h5"
+weight_file = f"{CLASSES}class_model.h5"
 
 print(CLASSES, chans, samples)
 # initialise model

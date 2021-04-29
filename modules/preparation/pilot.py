@@ -53,6 +53,7 @@ def epoch_pilot(raw: Raw, n_classes, good_channels, resample=250, trange=[-0.2, 
   #   raw = filter_channels(raw, good_channels)
 
   # raw = raw.reorder_channels(sorted(raw.ch_names))  
+  print(raw.ch_names)
   raw = raw.set_eeg_reference(ch_type='auto')
 
   # picks = pick_types(raw.info, meg=False, eeg=True, stim=False, eog=False)

@@ -10,7 +10,7 @@ from threading import Thread
 from time import sleep
 from mne import create_info
 from mne.io import RawArray
-from integration import game_connect, game_disconnect, lsl_connect, lsl_disconnect, get_model, stream_channels, LO_FREQ, HI_FREQ, GOODS
+from integration import game_connect, game_disconnect, lsl_connect, lsl_disconnect, get_model, CHANNELS, LO_FREQ, HI_FREQ, GOODS
 from preparation import filter_channels
 import PySimpleGUI as sg
 from tkinter.filedialog import askopenfilenames
@@ -20,8 +20,8 @@ from collections import deque
 ### START debug stuff
 from preparation import load_pilot, loadall_pilot
 from mne import Epochs, events_from_annotations, pick_types
-debug_pilot = load_pilot('data/rivet/raw/pilot2/BCI_imaginedmoves_3class_7-4-21.vhdr')
-# debug_pilot = loadall_pilot(True)
+# debug_pilot = load_pilot('data/rivet/raw/pilot2/BCI_imaginedmoves_3class_7-4-21.vhdr')
+debug_pilot = load_pilot('data/rivet/raw/pilot3/BCITEST29-4.vhdr')
 events, event_id = events_from_annotations(debug_pilot, event_id={'Stimulus/left': 0, 'Stimulus/right': 1, 'Stimulus/feet': 2})
 picks = pick_types(debug_pilot.info, meg=False, eeg=True, stim=False, eog=False)
 epochs = Epochs(debug_pilot, events, event_id, proj=False, picks=picks, baseline=None, preload=True, verbose=False, tmin=-1.5, tmax=2.5)
@@ -31,6 +31,7 @@ debug_data = debug_data[:,:,:-1]
 debug_label_map = ['left', 'right', 'feet']
 # debug_label_map_game = ['left', 'feet', 'right']
 
+# np.set_printoptions(threshold=sys.maxsize)
 
 print(debug_data)
 print(debug_data.shape)
@@ -79,7 +80,7 @@ class App:
     )]
   ]
 
-  stream_info = create_info(stream_channels, 500, 'eeg')
+  stream_info = create_info(CHANNELS, 500, 'eeg')
 
   # constructor
   def __init__(self):
@@ -273,64 +274,57 @@ class App:
       chunk, timestamps = self.eeg.pull_chunk(max_samples=2000)
       print(np.asarray(chunk).shape)
 
-      """
-      print('recording')
-      # record from t=0.5 to t=2.5
-      sample_window = []
-      # 1274 because the training data is currently sampled as 128Hz - needs to change
-      for i in range(1274):
-        # skip the first 250 samples (0.5 seconds)
-        if i < 250:
-          self.eeg.pull_sample()
-          continue
-
-        sample, timestamp = self.eeg.pull_sample()
-        sample_window.append(sample)
-      
-      print('recorded')
-      """
+      for i in range(64):
+        print(np.mean(np.asarray(chunk).T[i,:]))
 
       # turn into mne object with RawArray
       # apply info from self.stream_info above to get channel info
       raw = RawArray(data=np.asarray(chunk).T, info=self.stream_info)
+      # print(raw)
 
       # bandpass filter
       raw = raw.filter(LO_FREQ, HI_FREQ, method='fir', fir_design='firwin', phase='zero')
-      raw = raw.notch_filter(50, method='iir')
 
       # remove bad channels
       # raw = filter_channels(raw, GOODS)
       # raw.info['bads'] = [x for x in raw.ch_names if x not in GOODS]
-      raw = raw.reorder_channels(sorted(raw.ch_names))
+      # raw = raw.reorder_channels(sorted(raw.ch_names))
 
       # crop to the final 1024 samples - change to 1000 eventually
       # split into four 250 sample blocks with no shared samples
       # 
-      raw_data = raw.get_data(picks=GOODS, start=1000)*1000
-      to_classify = np.stack([raw_data[:,i::4] for i in range(4)])
-      # to_classify = np.stack([raw_data[:,0::4]])
+      raw.resample(125)
+      raw_data = raw.get_data(picks=sorted(GOODS), start=250)*1000
+      to_classify = np.stack([raw_data])
+      # to_classify = np.stack([raw_data[:,i::4] for i in range(4)])      # 4 distinct windowx
+      # to_classify = np.stack([raw_data[:,0::4]])                          # 1 window resample
       print(to_classify.shape)
-      print(to_classify)
-
+      # print(to_classify)
+      for i in range(9):
+        print(np.mean(to_classify[0,i,:]))
       # print(to_classify)
 
       # classify each individually
       # reshape to [epochs (4), kernels (1), channels (?), samples (1000)] 
       probs = self.model.predict(to_classify.reshape(to_classify.shape[0], 1, to_classify.shape[1], to_classify.shape[2]))
-      print(probs)
-      probs = np.sum(probs, axis=0) / 4
+      # print(probs)
+      probs = np.sum(probs, axis=0) / 1
       print(probs)
 
-      result = np.where(probs > 0.66)
-      # self.game.sendall(bytes([self.target + 1]))
-      if len(result[0]) == 0:
+      confidences = np.sort(probs, axis=0)[::-1]
+      confidence = confidences[0] - confidences[1]
+      prediction = probs.argmax(axis=0)
+
+      print("classification:", prediction, f"({debug_label_map[prediction]})")
+      print("confidence:", confidence)
+      if confidence < 0.20:
         # send unknown
         print('unknown')
         self.game.sendall(bytes([25]))
       else:
         # send index of result
-        print('classified:', result[0][0])
-        self.game.sendall(bytes([result[0][0] + 1]))
+        print('classified:', prediction, f"({debug_label_map[prediction]})")
+        self.game.sendall(bytes([prediction + 1]))
       
 
       # average result and assess probabilities
@@ -359,6 +353,9 @@ class App:
       chunk = debug_data[debug_index]
       target = debug_labels[debug_index]
 
+      for i in range(64):
+        print(np.mean(chunk[i,:]))
+
 
       # turn into mne object with RawArray
       # apply info from self.stream_info above to get channel info
@@ -385,6 +382,9 @@ class App:
       raw = raw.resample(125)
       to_classify = np.stack([raw.get_data(picks=sorted(GOODS))*1000])
       print(to_classify.shape)
+
+      for i in range(9):
+        print(np.mean(to_classify[0,i,:]))
       # print(to_classify)
 
       # print(to_classify)
@@ -406,7 +406,7 @@ class App:
       print("classification:", prediction, f"({debug_label_map[prediction]})")
       print("confidence:", confidence)
       # self.game.sendall(bytes([self.target + 1]))
-      if confidence < 0.25:
+      if confidence < 0.20:
         # send unknown
         print('unknown')
         self.game.sendall(bytes([25]))
