@@ -20,8 +20,8 @@ from collections import deque
 ### START debug stuff
 from preparation import load_pilot, loadall_pilot
 from mne import Epochs, events_from_annotations, pick_types
-# debug_pilot = load_pilot('data/rivet/raw/pilot2/BCI_imaginedmoves_3class_7-4-21.vhdr')
-debug_pilot = load_pilot('data/rivet/raw/pilot3/BCITEST29-4.vhdr')
+debug_pilot = load_pilot('data/rivet/raw/pilot2/BCI_imaginedmoves_3class_7-4-21.vhdr')
+# debug_pilot = load_pilot('data/rivet/raw/pilot3/BCITEST29-4.vhdr')
 events, event_id = events_from_annotations(debug_pilot, event_id={'Stimulus/left': 0, 'Stimulus/right': 1, 'Stimulus/feet': 2})
 picks = pick_types(debug_pilot.info, meg=False, eeg=True, stim=False, eog=False)
 epochs = Epochs(debug_pilot, events, event_id, proj=False, picks=picks, baseline=None, preload=True, verbose=False, tmin=-1.5, tmax=2.5)
@@ -237,18 +237,18 @@ class App:
 
   def finalize(self):
     print("finalize")
-    # if self.eeg is not None and self.game is not None:
-    #   print("starting stream and socket threads")
-    #   Thread(target=self.stream, daemon=True).start()
-    #   Thread(target=self.receive, daemon=True).start()
+    if self.eeg is not None and self.game is not None:
+      print("starting stream and socket threads")
+      Thread(target=self.stream, daemon=True).start()
+      Thread(target=self.receive, daemon=True).start()
     
     """
     DEBUG VERSION
     """
-    if self.game is not None:
-      print("starting stream and socket threads")
-      Thread(target=self.debug_stream, daemon=True).start()
-      Thread(target=self.receive, daemon=True).start()
+    # if self.game is not None:
+    #   print("starting stream and socket threads")
+    #   Thread(target=self.debug_stream, daemon=True).start()
+    #   Thread(target=self.receive, daemon=True).start()
 
     
 
@@ -274,12 +274,14 @@ class App:
       chunk, timestamps = self.eeg.pull_chunk(max_samples=2000)
       print(np.asarray(chunk).shape)
 
+      chunk = np.asarray(chunk).T
+
       for i in range(64):
-        print(np.mean(np.asarray(chunk).T[i,:]))
+        print(np.mean(chunk[i,:]))
 
       # turn into mne object with RawArray
       # apply info from self.stream_info above to get channel info
-      raw = RawArray(data=np.asarray(chunk).T, info=self.stream_info)
+      raw = RawArray(data=chunk, info=self.stream_info)
       # print(raw)
 
       # bandpass filter
@@ -292,9 +294,10 @@ class App:
 
       # crop to the final 1024 samples - change to 1000 eventually
       # split into four 250 sample blocks with no shared samples
-      # 
       raw.resample(125)
-      raw_data = raw.get_data(picks=sorted(GOODS), start=250)*1000
+
+      # rescale to the same unit as the pilot data uV -> mV
+      raw_data = raw.get_data(picks=sorted(GOODS), start=250) / 1000
       to_classify = np.stack([raw_data])
       # to_classify = np.stack([raw_data[:,i::4] for i in range(4)])      # 4 distinct windowx
       # to_classify = np.stack([raw_data[:,0::4]])                          # 1 window resample
@@ -323,8 +326,14 @@ class App:
         self.game.sendall(bytes([25]))
       else:
         # send index of result
-        print('classified:', prediction, f"({debug_label_map[prediction]})")
-        self.game.sendall(bytes([prediction + 1]))
+        # print('classified:', prediction, f"({debug_label_map[prediction]})")
+        # self.game.sendall(bytes([prediction + 1]))
+        if prediction == 0:
+          self.game.sendall(bytes([1]))
+        elif prediction == 1:
+          self.game.sendall(bytes([3]))
+        else:
+          self.game.sendall(bytes([2]))
       
 
       # average result and assess probabilities
