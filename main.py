@@ -20,7 +20,7 @@ from collections import deque
 ### START debug stuff
 from preparation import load_pilot, loadall_pilot
 from mne import Epochs, events_from_annotations, pick_types
-debug_pilot = load_pilot('data/rivet/raw/pilot2/BCI_imaginedmoves_3class_7-4-21.vhdr')
+debug_pilot = load_pilot('data/rivet/raw/jordan/pilot1.vhdr')
 # debug_pilot = load_pilot('data/rivet/raw/pilot3/BCITEST29-4.vhdr')
 events, event_id = events_from_annotations(debug_pilot, event_id={'Stimulus/left': 0, 'Stimulus/right': 1, 'Stimulus/feet': 2})
 picks = pick_types(debug_pilot.info, meg=False, eeg=True, stim=False, eog=False)
@@ -28,7 +28,7 @@ epochs = Epochs(debug_pilot, events, event_id, proj=False, picks=picks, baseline
 debug_labels = epochs.events[:, -1]
 debug_data = epochs.get_data()
 debug_data = debug_data[:,:,:-1]
-debug_label_map = ['left', 'right', 'feet']
+debug_label_map = ['left', 'feet', 'right']
 # debug_label_map_game = ['left', 'feet', 'right']
 
 # np.set_printoptions(threshold=sys.maxsize)
@@ -276,8 +276,8 @@ class App:
 
       chunk = np.asarray(chunk).T
 
-      for i in range(64):
-        print(np.mean(chunk[i,:]))
+      # for i in range(64):
+      #   print(np.mean(chunk[i,:]))
 
       # turn into mne object with RawArray
       # apply info from self.stream_info above to get channel info
@@ -304,7 +304,7 @@ class App:
       print(to_classify.shape)
       # print(to_classify)
       for i in range(9):
-        print(np.mean(to_classify[0,i,:]))
+        print(min(to_classify[0,i,:]), max(to_classify[0,i,:]), np.mean(to_classify[0,i,:]))
       # print(to_classify)
 
       # classify each individually
@@ -326,14 +326,14 @@ class App:
         self.game.sendall(bytes([25]))
       else:
         # send index of result
-        # print('classified:', prediction, f"({debug_label_map[prediction]})")
-        # self.game.sendall(bytes([prediction + 1]))
-        if prediction == 0:
-          self.game.sendall(bytes([1]))
-        elif prediction == 1:
-          self.game.sendall(bytes([3]))
-        else:
-          self.game.sendall(bytes([2]))
+        print(self.target, prediction + 1)
+        self.game.sendall(bytes([prediction + 1]))
+        # if prediction == 0:
+        #   self.game.sendall(bytes([1]))
+        # elif prediction == 1:
+        #   self.game.sendall(bytes([3]))
+        # else:
+        #   self.game.sendall(bytes([2]))
       
 
       # average result and assess probabilities

@@ -14,27 +14,29 @@ comp = read_raw_gdf('data/competition/raw/A01T.gdf', preload=True)
 comp = comp.rename_channels(comp_channel_map3)
 comp_drop = [chan for chan in comp.ch_names if chan not in GOODS]
 comp.drop_channels(comp_drop)
-comp_data = comp.get_data()
+comp_data = comp.get_data() * 1000
 
-pilt = read_raw_brainvision('data/rivet/raw/pilot2/BCI_imaginedmoves_3class_7-4-21.vhdr')
+pilt = read_raw_brainvision('data/rivet/raw/rory_pilot/RIVET_BCI_PILOT2.vhdr', preload=True)
+pilt = pilt.filter(LO_FREQ, HI_FREQ, method='fir', fir_design='firwin', phase='zero')
+pilt.resample(125)
 pilt_drop = [chan for chan in pilt.ch_names if chan not in GOODS]
 pilt.drop_channels(pilt_drop)
-pilt_data = pilt.get_data()*0.1
+pilt_data = pilt.get_data() * 1000
 
-xmpl = read_raw_fif(sample.data_path() + '/MEG/sample/sample_audvis_filt-0-40_raw.fif')
-xmpl_drop = ['MEG 0111', 'MEG 0121', 'MEG 0131', 'MEG 0211', 'MEG 0221', 'MEG 0231', 'MEG 0311', 'MEG 0321', 'MEG 0331', 'MEG 1511', 'MEG 1521', 'MEG 1531']
-xmpl.drop_channels(xmpl_drop)
-xmpl_data = xmpl.get_data()
+# xmpl = read_raw_fif(sample.data_path() + '/MEG/sample/sample_audvis_filt-0-40_raw.fif')
+# xmpl_drop = ['MEG 0111', 'MEG 0121', 'MEG 0131', 'MEG 0211', 'MEG 0221', 'MEG 0231', 'MEG 0311', 'MEG 0321', 'MEG 0331', 'MEG 1511', 'MEG 1521', 'MEG 1531']
+# xmpl.drop_channels(xmpl_drop)
+# xmpl_data = xmpl.get_data()
 
 
 for i in range(9):
-  print(min(comp_data[i]), max(comp_data[i]))
+  print(min(comp_data[i]), max(comp_data[i]), np.mean(comp_data[i]))
 print()
 
 for i in range(9):
-  print(min(pilt_data[i]), max(pilt_data[i]))
+  print(min(pilt_data[i]), max(pilt_data[i]), np.mean(pilt_data[i]))
 print()
 
-for i in range(9):
-  print(min(xmpl_data[i]), max(xmpl_data[i]))
+# for i in range(9):
+#   print(min(xmpl_data[i]), max(xmpl_data[i]))
 

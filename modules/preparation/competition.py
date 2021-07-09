@@ -53,7 +53,7 @@ def epoch_comp(raw, n_classes, good_channels=None, resample=250, trange=[-0.2, 0
     return (epochses, labelses)
 
   # get events
-  if   n_classes == 3: events, event_id = events_from_annotations(raw, event_id={'769': 0, '770': 1, '771': 2})
+  if   n_classes == 3: events, event_id = events_from_annotations(raw, event_id={'769': 0, '771': 1, '770': 2})
   elif n_classes == 2: events, event_id = events_from_annotations(raw, event_id={'769': 0, '770': 1})
   else: exit()
 

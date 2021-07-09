@@ -18,8 +18,8 @@ def test():
   pass
 
 # script start
-comp = prep_comp(comp_channel_map3, h_freq=30.)
-pilot = prepall_pilot(h_freq=30.)
+# comp = prep_comp(comp_channel_map3, h_freq=30.)
+# pilot = prepall_pilot(h_freq=30.)
 
-comp.plot()
-pilot.plot(block=True)
+# comp.plot()
+# pilot.plot(block=True)

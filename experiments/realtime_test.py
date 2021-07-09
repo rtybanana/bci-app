@@ -33,10 +33,14 @@ def train(model, train, validation, weight_file=None, epochs=300):
   return model.fit(train['x'], train['y'], batch_size=32, epochs=epochs, verbose=0, 
                    validation_data=(validation['x'], validation['y']), callbacks=([checkpointer] if checkpointer is not None else []))
 
+def prepare_and_test(model, data, targets):
+  pass
+
 
 ### script start
 # _compX, _compY = epoch_comp(prep_comp(load_comp(True), comp_channel_map3, l_freq=LO_FREQ, h_freq=HI_FREQ), CLASSES, GOODS, resample=RESAMPLE, trange=T_RANGE)
-_pilotX, _pilotY = epoch_pilot(load_pilot('data/rivet/raw/jordan/pilot1.vhdr'), CLASSES, GOODS, resample=RESAMPLE, trange=T_RANGE, l_freq=LO_FREQ, h_freq=HI_FREQ)
+_pilotX1, _pilotY1 = epoch_pilot(load_pilot('data/rivet/raw/rory_pilot/RIVET_BCI_PILOT1.vhdr'), CLASSES, GOODS, resample=RESAMPLE, trange=T_RANGE, l_freq=LO_FREQ, h_freq=HI_FREQ)
+_pilotX2, _pilotY2 = epoch_pilot(load_pilot('data/rivet/raw/rory_pilot/RIVET_BCI_PILOT1.vhdr'), CLASSES, GOODS, resample=None, trange=[-1.5, 2.5], l_freq=None, h_freq=None)
 
 # """
 # rory data - dicard first 50 epochs because noisy
@@ -56,7 +60,7 @@ _pilotX, _pilotY = epoch_pilot(load_pilot('data/rivet/raw/jordan/pilot1.vhdr'), 
 # comp_trainY, comp_valY = onehot(get_fold(_compY, FOLDS, 0, test_rest_split))
 # comp_valY, _ = onehot((comp_valY, []))
 
-chans, samples = _pilotX.shape[1], _pilotX.shape[2]
+chans, samples = _pilotX1.shape[1], _pilotX1.shape[2]
 Path(WEIGHT_PATH).mkdir(parents=True, exist_ok=True)
 
 # weight file path
@@ -84,15 +88,15 @@ for i in range(REPEATS):
 
   # cross validate transfer learning
   pilot_fold_avg = {'acc': 0, 'bal': 0, 'kap': 0}
-  for i, (train_index, test_index) in enumerate(skf.split(_pilotX, _pilotY)):
+  for i, (train_index, test_index) in enumerate(skf.split(_pilotX1, _pilotY1)):
     # reset weights
     model.load_weights(weight_file)     
 
     # stratified train-val-test split for pilot data
-    pilot_trainX, pilot_testX = _pilotX[train_index], _pilotX[test_index]
-    pilot_trainY, pilot_testY = _pilotY[train_index], _pilotY[test_index]
+    pilot_trainX, pilot_testX = _pilotX1[train_index], _pilotX2[test_index]
+    pilot_trainY, pilot_testY = _pilotY1[train_index], _pilotY2[test_index]
     pilot_trainX, pilot_valX, pilot_trainY, pilot_valY = train_test_split(pilot_trainX, pilot_trainY, test_size=1/(FOLDS-1), stratify=pilot_trainY)
-    pilot_trainX, pilot_valX, pilot_testX = add_kernel_dim((pilot_trainX, pilot_valX, pilot_testX), kernels=KERNELS)
+    pilot_trainX, pilot_valX = add_kernel_dim((pilot_trainX, pilot_valX), kernels=KERNELS)
     pilot_trainY, pilot_valY, targets = onehot((pilot_trainY, pilot_valY, pilot_testY))
 
     # transter learn on pilot data

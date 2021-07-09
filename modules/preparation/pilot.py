@@ -42,7 +42,7 @@ def epoch_pilot(raw: Raw, n_classes, good_channels, resample=250, trange=[-0.2, 
     
     return epochses
 
-  if   n_classes == 3: events, event_id = events_from_annotations(raw, event_id={'Stimulus/left': 0, 'Stimulus/right': 1, 'Stimulus/feet': 2})
+  if   n_classes == 3: events, event_id = events_from_annotations(raw, event_id={'Stimulus/left': 0, 'Stimulus/feet': 1, 'Stimulus/right': 2})
   elif n_classes == 2: events, event_id = events_from_annotations(raw, event_id={'Stimulus/left': 0, 'Stimulus/right': 1})
   else: exit()
 
@@ -62,8 +62,8 @@ def epoch_pilot(raw: Raw, n_classes, good_channels, resample=250, trange=[-0.2, 
   # print(sorted(good_channels))
   epochs = Epochs(raw, events, event_id, proj=False, picks=sorted(good_channels), baseline=None, preload=True, verbose=False, tmin=trange[0], tmax=trange[1])
   # print(epochs.ch_names)
-  epochs = epochs.resample(resample)
-  # epochs.plot(block=True)
+  if resample:
+    epochs = epochs.resample(resample)
   labels = epochs.events[:, -1]
 
   print(len(labels))
